@@ -72,7 +72,7 @@ plt.show() # Display the reference images
 
 
 # Experiment with background subtraction III in region extraction slides
-race = distImgs[3] # Store first race image 
+race = distImgs[0] # Store first race image 
 difference = np.sqrt( # Perform backsub III
     (race[:,:,0] - background[:,:,0])**2 +
     (race[:,:,1] - background[:,:,1])**2 +
@@ -87,8 +87,8 @@ thresholded = difference > 0.6 # Threshold the backsub image
 # Display a race image
 plt.figure(figsize=(12, 8))
 plt.subplot(2, 2, 1)
-plt.imshow(distImgs[3])
-plt.title("DIST_NEW_04")
+plt.imshow(distImgs[0])
+plt.title("DIST_NEW_01")
 plt.axis("off")
 
 # Background

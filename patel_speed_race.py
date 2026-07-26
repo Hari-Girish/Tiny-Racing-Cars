@@ -94,7 +94,7 @@ def closingAndConnectedComponents(image, thresholdedImg):
             extractedRegionsImg[labels == region.label] = 1 # Make the pixels for the extracted region white
 
     #print("Updated number of regions after eliminating small regions: ", len(validRegions))
-    
+    """
     plt.figure(figsize=(10, 10)) 
     plt.subplot(1, 2, 1) # Display the original thresholded image after closing
     plt.imshow(closed, cmap='gray')
@@ -107,7 +107,7 @@ def closingAndConnectedComponents(image, thresholdedImg):
     plt.axis("off")
 
     plt.show() # Display the image with the connected components
-    
+    """
     extractedCars = []
     finishLine = None
     for region in validRegions: # Loop through the detected regions
@@ -162,7 +162,19 @@ for i in range(1, 20): # Begin the loop to go through all speed race images. Loo
     raceHistory.append(currFrameFeatures) # Add the extracted car features to the race history of car features
 
     if isWinner: # If we have detected a winner, break from the loop, we do not need to analyze more frames
-        break
+        # Write code to print the winner
+        lastFrame = raceHistory[-1] # Store the last frame
+        redCar = lastFrame[0] # Store the red car features
+        blueCar = lastFrame[1] # Store the blue car features
+        redFinished = redCar["finished"] # Store the boolean value indicating if the red car finished the race
+        blueFinished = blueCar["finished"] # Store the boolean value indicating if the blue car finished the race
+        
+        if redFinished: # If the red car won, print its victory message
+            print("Winner Detected! The red car wins!")
+        elif blueFinished: # If the blue car won, print its victory message
+            print("Winner Detected! The blue car wins!")
+
+        break # The winner has been declared, we do not need to process any more images
     
 
 

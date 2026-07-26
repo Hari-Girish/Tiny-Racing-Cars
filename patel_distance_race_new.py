@@ -90,7 +90,7 @@ def closingAndConnectedComponents(image, thresholdedImg):
             extractedRegionsImg[labels == region.label] = 1 # Make the pixels for the extracted region white
 
     #print("Updated number of regions after eliminating small regions: ", len(validRegions))
-    
+    """
     # Can comment out the image displaying below
     plt.figure(figsize=(10, 10)) 
     plt.subplot(1, 2, 1) # Display the original thresholded image after closing
@@ -104,7 +104,7 @@ def closingAndConnectedComponents(image, thresholdedImg):
     plt.axis("off")
     plt.show() # Display the image with the connected components
     # Can comment out the image displaying above
-
+    """
 
     
     extractedCars = []
@@ -146,3 +146,17 @@ for i in range(len(distImgs)):
 
     raceHistory.append(currFrameFeatures) # Add the extracted car features to the race history of car features
 
+
+
+
+# Write code to print the winner
+lastFrame = raceHistory[-1] # Store the last frame
+redCar = lastFrame[0] # Store the red car features
+blueCar = lastFrame[1] # Store the blue car features
+redCarLastRow = redCar["centroid (y,x)"][0] # Store the last row value for the red car's centroid
+blueCarLastRow = blueCar["centroid (y,x)"][0] # Store the last row value for the blue car's centroid
+
+if redCarLastRow < blueCarLastRow: # If the red car is higher in the final image, its further ahead, meaning it won. Print its victory message
+    print("Winner Detected! The red car wins!")
+else: # Else, the blue car is ahead, the blue car wins, print its victory message
+    print("Winner Detected! The blue car wins!")
