@@ -6,7 +6,7 @@ Total Frames Analyzed: 15
 
 
 
-==== Red Car
+==== Red Car============================
 * Total Frames                                   :   15
 * Change in X (Pixels)                           :   -102.52211737240054
 * Change in Y (Pixels)                           :   1632.5985455343396
@@ -18,7 +18,10 @@ Total Frames Analyzed: 15
 * Maximum Distance Traveled Between Two Frames   :   339.6661481912886
 * Average Area of Car                            :   316665.2
 * Standard Deviation of Area                     :   21232.658232700556
-==== Blue Car
+
+
+
+==== Blue Car============================
 * Total Frames                                   :   15
 * Change in X (Pixels)                           :   -88.95329670256854
 * Change in Y (Pixels)                           :   2248.674060287708
