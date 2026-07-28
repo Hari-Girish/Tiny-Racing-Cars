@@ -144,39 +144,43 @@ def closingAndConnectedComponents(image, thresholdedImg):
 
 # Begin setting up the loop to go through all the speed race images until we detect a winner
 
-raceHistory = [] # Initialize an array to hold the car features extracted at each frame
+#raceHistory = [] # Initialize an array to hold the car features extracted at each frame
 
 # Backsub works best with background with no finish line, save that as primary background
 primarySpeedBG = backgroundSpeedImgs[0]
 
 threshold = 0.5 # The best threshold for background subtraction was found to be 0.5
 
+def runSpeedRace():
+    raceHistory = [] # Initialize an array to hold the car features extracted at each frame
+    for i in range(1, 20): # Begin the loop to go through all speed race images. Loop breaks if winner detected before last frame
 
-for i in range(1, 20): # Begin the loop to go through all speed race images. Loop breaks if winner detected before last frame
-    currImg = speedImgs[i - 1] # Store the current speed race image
+        currImg = speedImgs[i - 1] # Store the current speed race image
 
-    thresholded, difference = backSubThreshold(currImg, primarySpeedBG, threshold) # Call the function to perform the background subtraction
+        thresholded, difference = backSubThreshold(currImg, primarySpeedBG, threshold) # Call the function to perform the background subtraction
 
-    currFrameFeatures, isWinner = closingAndConnectedComponents(currImg, thresholded) # Perform the closing and connected components, extract the car features
+        currFrameFeatures, isWinner = closingAndConnectedComponents(currImg, thresholded) # Perform the closing and connected components, extract the car features
 
-    raceHistory.append(currFrameFeatures) # Add the extracted car features to the race history of car features
+        raceHistory.append(currFrameFeatures) # Add the extracted car features to the race history of car features
 
-    if isWinner: # If we have detected a winner, break from the loop, we do not need to analyze more frames
-        # Write code to print the winner
-        lastFrame = raceHistory[-1] # Store the last frame
-        redCar = lastFrame[0] # Store the red car features
-        blueCar = lastFrame[1] # Store the blue car features
-        redFinished = redCar["finished"] # Store the boolean value indicating if the red car finished the race
-        blueFinished = blueCar["finished"] # Store the boolean value indicating if the blue car finished the race
-        
-        if redFinished: # If the red car won, print its victory message
-            print("Winner Detected! The red car wins!")
-        elif blueFinished: # If the blue car won, print its victory message
-            print("Winner Detected! The blue car wins!")
+        if isWinner: # If we have detected a winner, break from the loop, we do not need to analyze more frames
+            # Write code to print the winner
+            lastFrame = raceHistory[-1] # Store the last frame
+            redCar = lastFrame[0] # Store the red car features
+            blueCar = lastFrame[1] # Store the blue car features
+            redFinished = redCar["finished"] # Store the boolean value indicating if the red car finished the race
+            blueFinished = blueCar["finished"] # Store the boolean value indicating if the blue car finished the race
+            
+            if redFinished: # If the red car won, print its victory message
+                print("Winner Detected! The red car wins!")
+            elif blueFinished: # If the blue car won, print its victory message
+                print("Winner Detected! The blue car wins!")
 
-        break # The winner has been declared, we do not need to process any more images
-    
+            break # The winner has been declared, we do not need to process any more images
 
-
+    return raceHistory  
 
 
+
+if __name__ == "__main__" :
+    history = runSpeedRace()

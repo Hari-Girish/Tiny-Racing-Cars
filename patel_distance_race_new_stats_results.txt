@@ -1,0 +1,39 @@
+======================================================================
+Distance Race Statistics
+======================================================================
+Total Frames Analyzed: 7
+
+
+
+
+==== Red Car============================
+* Total Frames                                   :   7
+* Change in X (Pixels)                           :   -120.69228770121094
+* Change in Y (Pixels)                           :   1895.752291508471
+* Total Distance Traveled (Pixels)               :   1900.5480407610396
+* Approximate Pixels per Frame                   :   271.5068629658628
+* Approximate Pixels per Second                  :   8145.205888975885
+* Y Pixels per Frame                             :   270.82175592978155
+* Y Pixels per Second                            :   8124.652677893447
+* Maximum Distance Traveled Between Two Frames   :   452.3575553890624
+* Average Area of Car                            :   82921.14285714286
+* Standard Deviation of Area                     :   27497.787559981574
+
+
+
+==== Blue Car============================
+* Total Frames                                   :   7
+* Change in X (Pixels)                           :   199.92004288180146
+* Change in Y (Pixels)                           :   2445.5455516903558
+* Total Distance Traveled (Pixels)               :   2454.9622814308864
+* Approximate Pixels per Frame                   :   350.7088973472695
+* Approximate Pixels per Second                  :   10521.266920418086
+* Y Pixels per Frame                             :   349.3636502414794
+* Y Pixels per Second                            :   10480.909507244382
+* Maximum Distance Traveled Between Two Frames   :   442.6261899930318
+* Average Area of Car                            :   79660.71428571429
+* Standard Deviation of Area                     :   35115.54769091111
+
+
+
+Winner Detected! The blue car wins!

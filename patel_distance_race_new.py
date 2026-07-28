@@ -133,23 +133,29 @@ def closingAndConnectedComponents(image, thresholdedImg):
 
 
 
-raceHistory = [] # Initialize an array to hold the car features extracted at each frame
+#raceHistory = [] # Initialize an array to hold the car features extracted at each frame
 
 threshold = 0.6 # New threshold for the distance race
 
-for i in range(len(distImgs)):
-    currImg = distImgs[i] # Store the current distance race image
 
-    thresholded, difference = backSubThreshold(currImg, background, threshold) # Call the function to perform the background subtraction
+def runSpeedRace():
+    raceHistory = [] # Initialize an array to hold the car features extracted at each frame
+    for i in range(len(distImgs)):
+        currImg = distImgs[i] # Store the current distance race image
 
-    currFrameFeatures = closingAndConnectedComponents(currImg, thresholded) # Perform the closing and connected components, extract the car features
+        thresholded, difference = backSubThreshold(currImg, background, threshold) # Call the function to perform the background subtraction
 
-    raceHistory.append(currFrameFeatures) # Add the extracted car features to the race history of car features
+        currFrameFeatures = closingAndConnectedComponents(currImg, thresholded) # Perform the closing and connected components, extract the car features
 
+        raceHistory.append(currFrameFeatures) # Add the extracted car features to the race history of car features
+
+
+    return raceHistory
 
 
 
 # Write code to print the winner
+raceHistory = runSpeedRace()
 lastFrame = raceHistory[-1] # Store the last frame
 redCar = lastFrame[0] # Store the red car features
 blueCar = lastFrame[1] # Store the blue car features
@@ -160,3 +166,10 @@ if redCarLastRow < blueCarLastRow: # If the red car is higher in the final image
     print("Winner Detected! The red car wins!")
 else: # Else, the blue car is ahead, the blue car wins, print its victory message
     print("Winner Detected! The blue car wins!")
+
+
+
+
+
+if __name__ == "__main__" :
+    history = runSpeedRace()
