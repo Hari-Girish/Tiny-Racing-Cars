@@ -1,28 +1,17 @@
-"""Per-sequence configuration for the five race image sequences.
-
-Every sequence lives under Data/, which is the master copy of the image data.
-Data/Speed Race and Data/Distance Race New are byte-identical to the committed
-SpeedRace/ and DistanceRaceNew/ folders, so reading everything from Data/ keeps
-one source of truth.
-
-Only the things that genuinely differ per sequence live here: where the files
-are, which frames are usable, and how each frame is cropped.  Every tracking
-parameter (pyramid level, search radius, window size, backsub threshold) is
-derived from the data at run time in girish_tracking.py, so nothing in this file
-is a tuned constant.
-"""
+# per-sequence config for the five races -> Data/ is the master copy, byte-identical
+# to committed SpeedRace/ and DistanceRaceNew/ where those overlap
+# only what genuinely differs per sequence lives here -> tracking params are all derived
+# at run time in girish_tracking.py, nothing here is a tuned constant
 
 import os
 
 import numpy as np
 from skimage import io
 
-DATA_DIR = "Data" # All image sequences live under this folder
+DATA_DIR = "Data" # all image sequences live under this folder
 
 
-# Each entry describes one race.  "crop" is applied after the rotation and is
-# stored as (rowStart, rowStop, colStart, colStop) with None meaning "no cut",
-# which keeps the crops readable next to the reason they exist.
+# crop is (rowStart, rowStop, colStart, colStop) after rotation, None = no cut
 SEQUENCES = {
     "speed": {
         "label": "Speed Race",
@@ -100,11 +89,8 @@ SEQUENCES = {
 
 
 def loadImage(path, crop):
-    # read -> float 0-1 -> rotate upright -> crop, matching the convention the
-    # detection scripts already use so both halves see the same pixel coordinates.
-    # float32 is deliberate: a 12 MP frame is 283 MB in float64 and only 141 MB
-    # here, which roughly halves the cost of every pyramid level.  Anything that
-    # needs full precision (the covariance matrices) casts back up locally.
+    # read -> float32 0-1 -> rotate upright -> crop, matches patel_*.py pixel coordinates
+    # float32 not float64: 141 MB vs 283 MB per frame -> covariance matrices cast up locally
     image = io.imread(path).astype(np.float32) / np.float32(255.0)
     image = np.rot90(image, -1)
     rowStart, rowStop, colStart, colStop = crop
@@ -128,14 +114,9 @@ def loadFrame(key, index):
     return loadImage(framePath(key, index), seq["crop"])
 
 
+# every frame at full resolution -> 3+ GB for a 23-frame sequence, do not use on an 8 GB machine
+# prefer loadFrame or girish_tracking.loadReduced unless every full frame is genuinely needed at once
 def loadSequence(key):
-    """Every action frame of one race at full resolution, in order.
-
-    A 12 MP frame is 141 MB as float32, so a 23-frame sequence is over 3 GB and
-    will not fit in memory on a 8 GB machine alongside everything else.  Prefer
-    loadFrame or girish_tracking.loadReduced unless full resolution is genuinely
-    needed for every frame at once.
-    """
     return [loadFrame(key, index) for index in range(frameCount(key))]
 
 

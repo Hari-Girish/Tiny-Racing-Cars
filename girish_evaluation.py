@@ -1,34 +1,16 @@
-"""Evaluation of the tracking results against independent detections.
-
-The proposal requires each team member to evaluate their own part.  Tracking is
-judged on three things:
-
-  identity held      in every frame where detection can see both cars, does the
-                     tracked window for a car sit on the region that has that
-                     car's colour, or has the tracker swapped the two?
-  agreement          how far, in pixels, is the tracked centre from the detected
-                     centroid in those frames?
-  consistency        do the per-frame displacement and the per-frame covariance
-                     match distance stay smooth, or is there a spike where the
-                     track was lost?
-
-The detections used here are recomputed independently of the tracker, so this is
-a comparison against a reference rather than the tracker grading itself.
-"""
+# tracking evaluated on 3 things vs independently recomputed detections, not the tracker's own output:
+# identity held -> does the tracked window sit on the correctly-coloured region
+# agreement -> px distance between tracked centre and detected centroid
+# consistency -> per-frame displacement / match distance, spike = lost track
 
 import numpy as np
 
 import girish_tracking as gt
 
 
+# one entry per frame: car name -> region, or None when detection found no clean pair
+# a None frame is itself a result -> where detection fails and the tracker carries identity alone
 def detectionsPerFrame(reduced, carNames):
-    """Independent per-frame detections at reduced size, for comparison only.
-
-    Returns one entry per frame: a dict of car name -> region, or None when
-    detection could not produce a clean pair for that frame.  Those None frames
-    are themselves a result: they are where detection fails and the tracker has
-    to carry the identity on its own.
-    """
     smallBackground = reduced["background"]
     factor = reduced["factor"]
     minArea = reduced["minArea"]
@@ -54,7 +36,7 @@ def detectionsPerFrame(reduced, carNames):
 
 
 def evaluateTracks(tracks, detections):
-    """Identity-held count and tracked-versus-detected agreement."""
+    # identity-held count and tracked-vs-detected agreement, over frames detection could see
     comparable = 0
     held = 0
     errors = []
@@ -84,7 +66,7 @@ def evaluateTracks(tracks, detections):
 
 
 def consistencyReport(tracks):
-    """Largest jump in displacement and in match distance, per car."""
+    # largest jump in displacement and in match distance, per car
     report = {}
     for name, track in tracks.items():
         centers = np.array(track["centers"])

@@ -1,24 +1,8 @@
-"""Distance races: track both cars and decide who travelled furthest.
-
-Four sequences are handled, and they are deliberately different from each other:
-
-  Distance Race New   beige fleece, red and blue cars, 7 frames, cars recede so
-                      strongly that their region area falls by about 4x
-  Distance Race 1     textured office carpet, red and yellow cars, 11 frames
-  Distance Race 2     same carpet, a hand is visible in the first frame
-  Distance Race 3     same carpet, 23 frames, the longest sequence
-
-Distance races 1, 2 and 3 share one folder of background frames, but those were
-shot from a different camera pose than the races themselves, so background
-subtraction against them is unusable.  The tracker falls back to three-frame
-image differencing for those, which needs no background image at all.
-
-The winner is the car with the greatest total distance travelled, measured in
-car lengths so that the cars receding from the camera does not distort the
-comparison.
-
-Run:  python girish_distance_tracking.py
-"""
+# distance races: track both cars -> winner = greatest total distance, in car lengths not pixels
+# run: python girish_distance_tracking.py
+# 4 sequences: distanceNew (fleece, 7 frames), distance1/2/3 (same carpet, 11/23/23 frames)
+# races 1-3 share a background folder shot from a different pose -> backsub unusable there,
+# falls back to three-frame differencing, which needs no background image at all
 
 import numpy as np
 
@@ -43,8 +27,7 @@ def runRace(key, render=True):
     print(f"  {len(frames)} frames of {reduced['fullShape'][1]} x {reduced['fullShape'][0]}, "
           f"held at {frames[0].shape[1]} x {frames[0].shape[0]}")
 
-    # try successive frames as the starting point: the first frame of a race can
-    # have a hand in it, or a car still partly out of shot
+    # try successive start frames -> the first frame of a race can have a hand in it or a car half out of shot
     setup = None
     for startIndex in range(1, min(6, len(frames) - 1)):
         try:
@@ -66,9 +49,7 @@ def runRace(key, render=True):
           f"(car is {max(t['sizes'][0][0] for t in tracks.values()):.0f} px tall), "
           f"derived search radius {setup['searchRadius']:.0f} px")
 
-    # check the still-camera assumption instead of taking it on trust: several
-    # of these races were shot handheld, and a camera that moves between frames
-    # adds its own displacement to every car
+    # check the still-camera assumption rather than trust it -> several races were shot handheld
     shifts, cumulative = gt.cameraTrack(frames)
     shiftsFull = shifts * reduced["factor"]
     perFrame = np.linalg.norm(shiftsFull, axis=1)
@@ -136,7 +117,7 @@ def main():
     for key in KEYS:
         try:
             result = runRace(key)
-        except Exception as error: # one difficult race must not stop the others
+        except Exception as error: # one difficult race must not stop the rest
             print(f"  FAILED on {key}: {type(error).__name__}: {error}")
             result = None
         if result is not None:

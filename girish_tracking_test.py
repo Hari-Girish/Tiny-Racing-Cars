@@ -1,22 +1,9 @@
-"""Diagnostic displays for the tracking half, in the style of the *_test scripts.
-
-The clean pipelines print numbers and write annotated frames.  This one shows
-the intermediate images those numbers came from, which is what was actually used
-while developing and checking the tracker:
-
-  1  the initialization masks: background subtraction and three-frame
-     differencing side by side, so it is visible why one works and the other
-     does not on a given sequence
-  2  the threshold sweep, showing which thresholds leave exactly two car-sized
-     regions and how convincing each pair's colours are
-  3  a covariance match-distance map over a whole frame, the direct picture of
-     what the tracker minimizes
-  4  the tracked window crop for every frame, side by side, which is the fastest
-     way to confirm identity never swapped
-
-Run:  python girish_tracking_test.py [sequence key]
-      keys: speed, distanceNew, distance1, distance2, distance3
-"""
+# diagnostic displays for the tracking half, matches patel_*_test.py convention
+# run: python girish_tracking_test.py [key]   keys: speed, distanceNew, distance1, distance2, distance3
+# 1 init masks: backsub vs three-frame differencing side by side
+# 2 threshold sweep: which thresholds leave 2 car-sized regions and how convincing each pair is
+# 3 covariance match-distance map over a whole frame, what the tracker minimizes
+# 4 tracked window crop per frame, side by side -> fastest way to confirm identity never swapped
 
 import os
 import sys
@@ -36,7 +23,7 @@ OUTPUT_ROOT = "girish_output/diagnostics"
 
 
 def showInitMasks(reduced, key, index, outputDir):
-    """Background subtraction next to three-frame differencing at one frame."""
+    # backsub next to three-frame differencing, at one frame
     frames = reduced["frames"]
     background = reduced["background"]
     current = frames[index]
@@ -77,7 +64,7 @@ def showInitMasks(reduced, key, index, outputDir):
 
 
 def showThresholdSweep(reduced, key, index, outputDir):
-    """Which thresholds leave a convincing pair, and how convincing."""
+    # which thresholds leave a convincing pair, and how convincing
     carNames = gs.SEQUENCES[key]["carNames"]
     frames = reduced["frames"]
     minArea = reduced["minArea"]
@@ -130,7 +117,7 @@ def showThresholdSweep(reduced, key, index, outputDir):
 
 
 def showMatchSurface(reduced, setup, index, outputDir, key, step=3):
-    """The covariance distance from one car's model to every window in a frame."""
+    # covariance distance from one car's model to every window in the frame, on a step-size grid
     tracks = setup["tracks"]
     level = setup["level"]
     extra = level - reduced["levels"]
@@ -180,7 +167,7 @@ def showMatchSurface(reduced, setup, index, outputDir, key, step=3):
 
 
 def showTrackedCrops(reduced, setup, outputDir, key):
-    """Every tracked window, in order, so an identity swap is impossible to miss."""
+    # every tracked window, in order, one row per car -> a swap shows as the wrong colour in a row
     tracks = setup["tracks"]
     frames = reduced["frames"]
     scale = 1.0 / reduced["factor"]
