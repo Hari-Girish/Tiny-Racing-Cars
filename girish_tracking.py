@@ -1,37 +1,13 @@
-"""Object tracking and motion analysis for the toy car races (Person 2 / Hari).
-
-The tracker is covariance tracking from Content/CovarianceTracking.pdf: each car
-is described by the covariance matrix of the per-pixel feature vector
-[x y R G B] over its window, and the car is found in the next frame by scanning
-candidate windows and keeping the one whose covariance matrix is closest to the
-model under the Riemannian distance
-
-    rho(C1, C2) = sqrt( sum_i ln(lambda_i(C1, C2))^2 )
-
-where lambda_i are the generalized eigenvalues.  This is the same distance
-implemented for HW4 Problem 4, generalized here to take both matrices.
-
-Everything that would otherwise be a per-sequence tuned constant is derived from
-the sequence itself:
-
-    pyramid level      round(log2(car height / TARGET_CAR_PIXELS))
-    search radius      2x the largest detected displacement in the first frames
-    window size        the frame-1 detection bounding box, plus a scale search
-    backsub threshold  swept until exactly two car-sized moving regions survive
-
-Supporting techniques are all from the course content: Gaussian pyramids and
-coarse-to-fine search (ImagePyramids.pdf), image differencing (Motion.pdf), and
-background subtraction / morphology / connected components (RegionExtraction.pdf).
-"""
+# covariance tracking (CovarianceTracking.pdf) -> car = cov of [x y R G B] over its window
+# rho(C1,C2) = sqrt(sum(ln(generalized eigenvalue(C1,C2)))^2) -> HW4 P4 distance, two matrices
+# pyramid level / search radius / window size / threshold all derived per sequence, not tuned
 
 import numpy as np
 from scipy import ndimage
 from scipy.linalg import eigh
 from skimage.measure import label, regionprops
 
-# feature vectors use colours on a 0-255 scale, matching the HW4 convention.
-# the covariance distance is invariant to a per-channel rescaling, so this is a
-# conditioning choice rather than a meaningful one
+# colours on 0-255 scale, matching HW4 -> rho is invariant to per-channel rescaling, see unit checks
 COLOR_SCALE = 255.0
 
 # a car is resized to roughly this many pixels tall before searching, which is
@@ -59,13 +35,7 @@ _PYRAMID_KERNEL = np.array([1.0, 4.0, 6.0, 4.0, 1.0]) / 16.0
 
 
 def _blurDecimate(image, axis):
-    """Blur with the 5-tap kernel and keep every other sample, in one pass.
-
-    Only the samples that survive decimation are ever computed, and each of the
-    five kernel taps is gathered straight into a half-size array.  Filtering the
-    full frame first and subsampling afterwards allocates several copies of a
-    12 MP frame and is what made this the slowest step in the pipeline.
-    """
+    # 5-tap blur, only at kept samples -> avoids filtering the full 12 MP frame then subsampling
     length = image.shape[axis]
     kept = np.arange(0, length, 2)
 
@@ -103,9 +73,7 @@ def chooseLevel(carHeight, target=TARGET_CAR_PIXELS):
 # ---------------------------------------------------------------------------
 
 def covDescriptor(patch):
-    # f_k = [x y R G B] per pixel with x, y local to the patch -> 5x5 covariance.
-    # frames are stored as float32 to keep memory down; the covariance itself is
-    # accumulated in float64 so the generalized eigenproblem stays well behaved
+    # f_k = [x y R G B] per pixel, x y local to patch -> 5x5 covariance, accumulated in float64
     rows, cols = patch.shape[:2]
     yy, xx = np.mgrid[0:rows, 0:cols]
     colors = patch.astype(np.float64) * COLOR_SCALE
@@ -136,20 +104,13 @@ def covDistance(C1, C2):
     return float(np.sqrt(np.sum(np.log(lam) ** 2)))
 
 
-# a window may hang off the edge of the frame, but only so far: the cars really
-# do drive out of shot at the end of several races, and refusing to describe a
-# partly visible car means losing the track exactly when it matters
+# cars do drive out of frame near the end of several races, so a window is clipped not rejected
 MIN_WINDOW_COVERAGE = 0.6
 
 
 def windowDescriptor(image, centerRow, centerCol, height, width,
                      minCoverage=MIN_WINDOW_COVERAGE):
-    """Covariance of the window centred on the given point.
-
-    The window is clipped to the frame rather than rejected outright, so a car
-    leaving the shot is still described, up to the point where too little of it
-    is visible for the description to mean anything.
-    """
+    # window centred at (centerRow, centerCol) -> clip to frame -> cov descriptor, or None if too little survives
     r0 = int(round(centerRow - height / 2.0))
     c0 = int(round(centerCol - width / 2.0))
     r1, c1 = r0 + max(1, int(round(height))), c0 + max(1, int(round(width)))
@@ -180,12 +141,8 @@ def _cleanAndLabel(binary):
 
 
 def _describeRegions(labels, frame, minArea, moving=None):
-    """Region records for every labelled component above the area floor.
-
-    Mean colour is taken with ndimage.mean over the whole label image at once.
-    Building a boolean mask per region instead costs one full image pass per
-    region, and a low threshold on the carpet can leave fifty of them.
-    """
+    # labels -> filter by area -> vectorized per-label colour means (ndimage.mean, not a mask per region)
+    # a low carpet threshold can leave fifty regions, so this stays one pass over the image, not fifty
     props = [p for p in regionprops(labels) if p.area >= minArea]
     if not props:
         return []
@@ -225,38 +182,19 @@ def maskRegions(binary, frame, minArea):
 
 
 def threeFrameRegions(previous, current, following, threshold, minArea):
-    """Where the cars are in `current`, from image differencing alone.
-
-    Differencing two frames marks both the position a car left and the position
-    it arrived at.  Intersecting the difference against the previous frame with
-    the difference against the next frame keeps only the middle position, which
-    is where the car actually is in `current`.  This needs no background image,
-    which matters because the shared background frames were shot from a
-    different camera pose than distance races 1 and 2.
-    """
+    # diff(prev,cur) marks where the car left -> diff(cur,next) marks where it arrived
+    # AND of both -> only the middle position survives, i.e. where the car sits in `current`
+    # needs no background image, unlike backsub -> see findCarsByDifferencing
     before = motionMask(previous, current, threshold)
     after = motionMask(current, following, threshold)
     return maskRegions(before & after, current, minArea)
 
 
+# brute-force search over translations, not from the course -> block matching, not covariance tracking
+# median abs diff not SSD: cars are a small part of the frame, so the median tracks the background,
+# not the very objects whose motion is being separated out
 def estimateCameraShift(previous, current, maxShift, step=1):
-    """Global frame-to-frame camera shift, by direct search over translations.
-
-    Several of these races were shot handheld, so the camera itself moves
-    between frames.  When it does, the distance a car appears to travel across
-    the image is its real motion plus the camera's, and the distance race is
-    then scoring the photographer instead of the cars.
-
-    The score is the median absolute difference over the whole overlap rather
-    than the sum of squares.  The cars are a small part of the frame, so the
-    median is set by the background and is not dragged around by the very
-    objects whose motion is being separated out.  This is the still-camera
-    assumption from Motion.pdf being checked rather than assumed.
-
-    The returned shift is how far the image content moved between the two
-    frames, in the same sense as a car's measured displacement, so it can be
-    subtracted from one directly.
-    """
+    # scan candidate (row,col) shifts -> score = median|overlap diff| -> best shift = how far content moved
     previousGrey = previous.mean(axis=2)
     currentGrey = current.mean(axis=2)
     rows, cols = previousGrey.shape
@@ -279,17 +217,8 @@ def estimateCameraShift(previous, current, maxShift, step=1):
 
 
 def cameraTrack(frames, maxShift=12, levels=2):
-    """Cumulative camera position over a sequence.
-
-    The search is a brute-force scan over translations, so it runs on a coarser
-    pyramid level than the tracker uses and the answer is scaled back up.  At
-    two extra levels the estimate is quantised to four pixels of the input
-    frames, which is far finer than the drift being detected and cheap enough to
-    run over every pair in a sequence.
-
-    Returns the per-frame shift and the running total, in the units of the
-    frames handed in.
-    """
+    # decimate 2 levels -> scan every consecutive pair -> shift scaled back up -> cumsum
+    # runs at 1/4 resolution so the brute-force scan stays cheap over a whole sequence
     coarse = [downsample(frame, levels) for frame in frames]
     scale = float(2 ** levels)
 
@@ -363,14 +292,9 @@ MIN_COLOR_SCORE = 0.08
 MAX_AREA_RATIO = 4.0
 
 
+# exactly-two-regions is not enough on its own: a low threshold can leave a car plus a grey shadow
+# and still pass a count test, so each region also has to look like the colour it's assigned
 def pairQuality(regions, carNames):
-    """Score a candidate pair of regions as "these really are the two cars".
-
-    A threshold that leaves exactly two regions is not enough on its own: on the
-    speed race a low threshold leaves the blue car plus a large grey shadow, and
-    the pair passes a count test.  Requiring each region to actually look like
-    the colour it is being assigned rejects that.
-    """
     named, margin = assignIdentities(regions, carNames)
     weakest = min(colorScore(named[name]["color"], name) for name in named)
     areas = sorted(region["area"] for region in regions)
@@ -392,15 +316,9 @@ def _bestCandidate(candidates):
     return max(valid, key=lambda c: c["weakest"])
 
 
+# needs a background shot from the same camera pose -> true for speed race and distance race new only
 def findCarsBySubtraction(frame, nextFrame, background, carNames, minArea,
                           motionThreshold=0.10):
-    """Two cars from background subtraction, keeping only the regions that move.
-
-    Works when the reference background was shot from the same camera pose as
-    the race, which is true for the speed race and Distance Race New.  The
-    finish line is pulled out separately because it is legitimately large and
-    legitimately static.
-    """
     moving = motionMask(frame, nextFrame, motionThreshold)
     candidates = []
     for threshold in THRESHOLD_SWEEP:
@@ -419,8 +337,8 @@ def findCarsBySubtraction(frame, nextFrame, background, carNames, minArea,
     return _bestCandidate(candidates)
 
 
+# no background image needed -> the carpet races (1, 2) where the shared BG pose does not match
 def findCarsByDifferencing(previous, current, following, carNames, minArea):
-    """Two cars from three-frame differencing, with no background image at all."""
     candidates = []
     for threshold in THRESHOLD_SWEEP:
         regions = keepDominant(threeFrameRegions(previous, current, following,
@@ -436,8 +354,7 @@ def findCarsByDifferencing(previous, current, following, carNames, minArea):
 
 
 def locateCars(frames, background, index, carNames, minArea):
-    """Find both cars in frames[index], preferring background subtraction and
-    falling back to differencing when no threshold gives a convincing pair."""
+    # backsub first -> falls back to three-frame differencing if no threshold gives a convincing pair
     if background is not None and index + 1 < len(frames):
         found = findCarsBySubtraction(frames[index], frames[index + 1], background,
                                       carNames, minArea)
@@ -449,14 +366,9 @@ def locateCars(frames, background, index, carNames, minArea):
     return None
 
 
+# load one full frame at a time, downsample, drop it -> holding all full frames is 3+ GB on the
+# longer races and swaps an 8 GB machine into an apparent hang, do not batch-load frames here
 def loadReduced(loadFrame, count, background=None, levels=2):
-    """Load a sequence straight to a reduced pyramid level, one frame at a time.
-
-    Each full-resolution frame is downsampled and then dropped, so peak memory
-    is one full frame plus the reduced sequence.  Holding all the full frames
-    would be over 3 GB for the longer races, which does not fit alongside
-    everything else on an 8 GB machine and sends the whole run into swap.
-    """
     reduced = []
     fullShape = None
     for index in range(count):
@@ -479,17 +391,9 @@ def prepareSmall(frames, background, levels=2):
     return loadReduced(lambda index: frames[index], len(frames), background, levels)
 
 
+# startIndex defaults to 1, not 0: three-frame differencing needs a frame on both sides ->
+# runTracker then walks backwards from startIndex to frame 0, so nothing is dropped
 def initTracks(reduced, carNames, startIndex=1):
-    """Locate both cars and build their covariance models.
-
-    Works on the reduced sequence from loadReduced, and returns coordinates
-    scaled back up to full resolution so the overlays line up with the original
-    frames.
-
-    Initialization happens at `startIndex` rather than at frame 0 because
-    three-frame differencing needs a frame on either side.  The tracker then
-    searches frame 0 backwards, so no frame is dropped from the results.
-    """
     smallBackground = reduced["background"]
     factor = reduced["factor"]
     minArea = reduced["minArea"]
@@ -504,10 +408,8 @@ def initTracks(reduced, carNames, startIndex=1):
 
     named, margin = assignIdentities(cars, carNames)
 
-    # the search radius has to cover the jumps the cars actually make, so measure
-    # them over the next few frames instead of guessing a constant.  The median
-    # is used rather than the maximum because one bad detection would otherwise
-    # blow the radius up to the size of the whole frame.
+    # radius measured from the next few frames, not guessed -> median not max, so one bad
+    # detection can't blow the radius up to the size of the whole frame
     steps = []
     previousCenters = {name: np.array(region["centroid"]) for name, region in named.items()}
     for index in range(startIndex + 1, min(startIndex + 5, len(small) - 1)):
@@ -556,13 +458,9 @@ def initTracks(reduced, carNames, startIndex=1):
 # Per-frame tracking
 # ---------------------------------------------------------------------------
 
+# last position + last velocity -> lets a local search cope with jumps of several hundred pixels
+# not from the course -> simplest possible motion model, same idea as a Kalman predict step
 def predictCenter(history, index, step):
-    """Constant-velocity prediction for the next frame in the walk direction.
-
-    This is what lets a purely local search cope with jumps of several hundred
-    pixels: the search box is centred on where the car should be, not on where
-    it last was.
-    """
     last = np.array(history[index - step]["center"])
     older = history.get(index - 2 * step)
     if older is None:
@@ -572,7 +470,7 @@ def predictCenter(history, index, step):
 
 
 def searchWindow(image, model, center, size, radius, scales, blocked=None):
-    """Coarse-to-fine scan around a predicted centre, over a few window scales."""
+    # coarse scan (step 4) over offsets x scales -> refine at step 1 near the coarse winner
     height0, width0 = size
 
     def evaluate(rowOffset, colOffset, scale):
@@ -624,10 +522,9 @@ def _overlaps(center, size, blocked):
     return rowGap < 0 and colGap < 0
 
 
+# slide-11 model update -> mean of last 3 accepted models, only accepted if distance <= running median
+# rejects a merge/occlusion frame instead of absorbing it into the model
 def updateModel(state, C, distance, historyLength=3):
-    """Slide-11 model update: average the recent models, but only accept a frame
-    whose match was at least as good as usual, so a merge or an occlusion cannot
-    be absorbed into the model."""
     accepted = state["accepted"]
     if accepted and distance > float(np.median(accepted)):
         return
@@ -678,13 +575,8 @@ def _walk(levelFrames, states, histories, startIndex, step, radius, scales, fact
                 updateModel(state, C, distance)
 
 
+# walks outward from startIndex in both directions -> forward pass, reset to initial model, backward pass
 def runTracker(reduced, setup, scales=(0.85, 1.0, 1.15)):
-    """Track both cars across the whole sequence at the derived pyramid level.
-
-    Tracking starts at the initialization frame and walks outward in both
-    directions, so initializing at frame 1 (which three-frame differencing
-    requires) still produces a result for frame 0.
-    """
     tracks = setup["tracks"]
     startIndex = setup["startIndex"]
     frames = reduced["frames"]
@@ -742,38 +634,17 @@ def runTracker(reduced, setup, scales=(0.85, 1.0, 1.15)):
 # Motion analysis
 # ---------------------------------------------------------------------------
 
+# both cars are the same physical toy, so they must share one ruler: using each car's own initial
+# box instead let a tight box inflate that car's distance (320px vs 508px boxes -> 1.6x on race 3)
 def referenceHeight(tracks):
-    """One car length shared by both cars in a sequence.
-
-    The two toy cars are the same physical size, so they must be measured
-    against the same ruler.  Using each car's own initial box instead lets a
-    tight detection box inflate that car's distance for the whole race: in
-    Distance Race 3 the initial boxes were 320 px and 508 px tall for cars that
-    are really the same length, which alone was a factor of 1.6 on the result.
-    """
     return float(np.mean([track["sizes"][0][0] for track in tracks.values()]))
 
 
+# three corrections, each changes the result on this data:
+# perspective -> divide by height_t/height_0 (car shrinks as it recedes, real length is constant)
+# shared ruler -> `reference` arg, not each car's own box, see referenceHeight
+# camera motion -> subtract cameraShifts (handheld races), see estimateCameraShift
 def frameSpeeds(track, cameraShifts=None, reference=None):
-    """Per-frame speed in pixels and in car lengths.
-
-    Three corrections are applied, and each of them changes the answer on this
-    data:
-
-    Perspective.  The cars recede from the camera, so raw pixel speed falls even
-    at constant real speed.  The car's window shrinks by the same factor, so the
-    ratio of its current height to its starting height is the scale of that
-    frame, and dividing by it undoes the perspective.
-
-    A shared ruler.  The scale factor above is relative to each car's own first
-    frame, so it cancels how tightly that car happened to be boxed.  Distances
-    are then expressed in one shared car length, which makes the two cars
-    comparable to each other and to the other sequences.
-
-    Camera motion.  Where the camera was handheld, part of a car's apparent
-    displacement is the camera moving.  Subtracting the estimated global shift
-    leaves motion relative to the ground, which is what a distance race asks.
-    """
     centers = np.array(track["centers"])
     sizes = np.array(track["sizes"])
     deltas = np.diff(centers, axis=0)

@@ -1,16 +1,6 @@
-"""Per-frame race graphics drawn on top of the tracked results.
-
-Everything here reads from the tracks produced by girish_tracking.py.  The
-proposal promised, for each frame: a trailing line showing where each car has
-been, a line in front of each car, a line indicating the distance between the
-leading and trailing car, and a live speed readout.  The distance races also
-show the running total distance travelled, and the last frame carries the
-winner.
-
-The cars travel up the frame after the rotation, so "in front of the car" means
-towards smaller row indices, and a marker drawn across the lane in front of a
-car is a horizontal line on screen.
-"""
+# per-frame overlays on top of girish_tracking.py output -> trail, leading-edge line,
+# gap line, live speed, running total (distance races), winner banner (last frame)
+# cars travel up the rotated frame -> "in front" = smaller row index = horizontal line on screen
 
 import os
 
@@ -37,14 +27,10 @@ def carColor(name):
     return CAR_COLORS.get(name, "#ffffff")
 
 
+# tracks are stored full-resolution, figures render on a reduced frame (12 MP won't fit
+# rendered twenty times over) -> scale converts track coordinates down to match
 def drawFrame(ax, image, tracks, index, speeds, kind, finishLineRow=None, winner=None,
               scale=1.0):
-    """Draw one annotated frame onto an existing axis.
-
-    Tracks are stored in full-resolution coordinates.  Figures are drawn on a
-    reduced copy of the frame, because a 12 MP frame is 141 MB and rendering
-    twenty of them at full size will not fit in memory, so `scale` converts.
-    """
     ax.imshow(image)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -105,8 +91,7 @@ def drawFrame(ax, image, tracks, index, speeds, kind, finishLineRow=None, winner
             ha="center", va="center", bbox=TEXT_BOX)
 
     if winner is not None:
-        # the cars finish at the top of the frame, so the banner goes at the
-        # bottom where it cannot cover a car or its speed label
+        # cars finish at the top of frame -> banner goes at the bottom so it can't cover a car or its label
         ax.text(cols / 2, rows * 0.96, f"WINNER: {winner.upper()} CAR",
                 color=carColor(winner), fontsize=16, fontweight="bold",
                 ha="center", va="bottom",
@@ -114,13 +99,9 @@ def drawFrame(ax, image, tracks, index, speeds, kind, finishLineRow=None, winner
                           edgecolor=carColor(winner), linewidth=2))
 
 
+# one annotated PNG per frame -> draws on the reduced frames already in memory, nothing re-read from disk
 def renderSequence(reduced, tracks, speeds, kind, outputDir, label,
                    finishLineRow=None, winner=None, winnerFrom=None):
-    """Write one annotated PNG per frame; returns the list of paths written.
-
-    Draws on the reduced frames the tracker already holds, so nothing has to be
-    read back from disk and no full-resolution frame is ever materialised.
-    """
     os.makedirs(outputDir, exist_ok=True)
     frames = reduced["frames"]
     scale = 1.0 / reduced["factor"]
@@ -141,7 +122,7 @@ def renderSequence(reduced, tracks, speeds, kind, outputDir, label,
 
 
 def renderSummary(reduced, tracks, speeds, kind, outputPath, label, finishLineRow=None):
-    """One figure holding the full trajectory plus the speed and match curves."""
+    # one figure: full trajectory, speed curve, match-distance curve
     frames = reduced["frames"]
     scale = 1.0 / reduced["factor"]
     count = len(frames)

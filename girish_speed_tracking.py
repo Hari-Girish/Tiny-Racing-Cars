@@ -1,18 +1,7 @@
-"""Speed race: track both cars, measure their speed, and declare the winner.
-
-The speed race is decided by which car reaches the finish line first.  The
-detection half finds the finish line as the one region wide enough to span the
-frame, and this script watches the leading edge of each tracked car until one of
-them crosses that row.
-
-The interesting part of this sequence is what happens near the end.  From frame
-15 the leading car touches the finish line, so background subtraction merges the
-two into a single region and can no longer report the car at all.  The tracker
-searches the image rather than the detection mask, so it keeps both identities
-through the merge and can say which car crossed.
-
-Run:  python girish_speed_tracking.py
-"""
+# speed race: track both cars -> watch each leading edge -> first to cross the finish row wins
+# run: python girish_speed_tracking.py
+# from frame 15 the leading car merges into the finish-line region and backsub loses it entirely,
+# but the tracker searches the raw image, not the detection mask, so it holds both identities through it
 
 import numpy as np
 
@@ -35,7 +24,7 @@ def findFinishRow(setup):
 
 
 def declareWinner(tracks, finishRow):
-    """First frame in which a car's leading edge crosses the finish line."""
+    # first frame in which a car's leading edge crosses the finish line
     if finishRow is None:
         return None, None
     crossings = {}
@@ -108,7 +97,7 @@ def main():
 
     blind = [i + 1 for i, d in enumerate(detections) if d is None]
     if blind:
-        print(f"    detection was blind on frames {blind}; the tracker still reported both cars")
+        print(f"    detection was blind on frames {blind}, tracker still reported both cars")
 
     print("\n  rendering annotated frames")
     paths = go.renderSequence(reduced, tracks, speeds, seq["kind"], OUTPUT_DIR, seq["label"],
